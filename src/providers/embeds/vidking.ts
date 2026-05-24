@@ -25,7 +25,6 @@ export const vidkingScraper = makeEmbed({
     try {
       const page = await browser.newPage();
 
-      // Set a realistic user‑agent and referer to avoid being blocked
       await page.setUserAgent(
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       );
@@ -33,53 +32,71 @@ export const vidkingScraper = makeEmbed({
         Referer: 'https://www.vidking.net/',
       });
 
-      // Intercept network requests to catch the .m3u8 playlist
+      // Intercept responses (not just requests) to capture the actual m3u8 URL
       await page.setRequestInterception(true);
-      page.on('request', (request) => {
-        const url = request.url();
+      page.on('response', async (response) => {
+        const url = response.url();
         if (url.includes('.m3u8')) {
           streamUrl = url;
-          // Optionally abort the request to save bandwidth
-          // request.abort();
-        } else {
-          request.continue();
+          console.log('Captured m3u8 URL:', streamUrl);
         }
       });
 
-      // Navigate to the embed URL
+      // Navigate and wait for network to be mostly idle
       await page.goto(ctx.url, {
         waitUntil: 'networkidle2',
-        timeout: 30000,
+        timeout: 60000,
       });
 
-      // Wait for the video element to start loading (at least 5 seconds of buffering)
-      try {
-        await page.waitForFunction(
-          () => {
-            const video = document.querySelector('video');
-            return video && video.duration > 0;
-          },
-          { timeout: 30000 }
-        );
-      } catch (err) {
-        // If waiting for video fails, check if we already caught an .m3u8 request
-        if (!streamUrl) {
-          // One more attempt: look for any <source> or video.src
-          streamUrl = await page.evaluate(() => {
-            const video = document.querySelector('video');
-            if (video && video.src) return video.src;
-            const source = document.querySelector('source');
-            if (source && source.src) return source.src;
-            return null;
-          });
-        }
+      // Give some time for any delayed requests
+      await new Promise(resolve => setTimeout(resolve, 5000));
+
+      // If we didn't capture via network, try to extract from page
+      if (!streamUrl) {
+        streamUrl = await page.evaluate(() => {
+          // Check video element
+          const video = document.querySelector('video');
+          if (video && video.src) return video.src;
+          
+          // Check source elements
+          const source = document.querySelector('source');
+          if (source && source.src) return source.src;
+          
+          // Search all scripts for m3u8
+          const scripts = Array.from(document.querySelectorAll('script'));
+          for (const script of scripts) {
+            const content = script.textContent || script.innerText;
+            if (content) {
+              const match = content.match(/(https?:\/\/[^\s"']+\.m3u8[^\s"']*)/i);
+              if (match) return match[1];
+            }
+          }
+          
+          // Check for any iframe that might contain the player
+          const iframe = document.querySelector('iframe');
+          if (iframe && iframe.src) return iframe.src;
+          
+          return null;
+        });
+      }
+
+      if (!streamUrl) {
+        // As a last resort, get the page HTML and use regex
+        const html = await page.content();
+        const regex = /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/i;
+        const match = html.match(regex);
+        if (match) streamUrl = match[1];
       }
 
       if (!streamUrl) {
         throw new NotFoundError('Could not find any playable stream (.m3u8)');
       }
 
-      // Return the HLS stream
+      // Ensure URL is absolute
+      if (streamUrl.startsWith('//')) {
+        streamUrl = `https:${streamUrl}`;
+      }
+
       return {
         stream: [
           {
