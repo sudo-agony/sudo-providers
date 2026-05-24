@@ -105,7 +105,7 @@ export const vidkingScraper = makeEmbed({
   id: 'vidking',
   name: 'VidKing',
   rank: 206,
-  disabled: false,
+  disabled: true, // Disable until I have the time to fix this API
   async scrape(ctx) {
     return scrape(ctx);
   },
