@@ -1,54 +1,89 @@
 import { flags } from '@/entrypoint/utils/targets';
 import { makeEmbed } from '@/providers/base';
+import { NotFoundError } from '@/utils/errors';
 
 const providers = [
   {
     id: 'autoembed-english',
     rank: 10,
+    name: 'English',
   },
   {
     id: 'autoembed-hindi',
     rank: 9,
     disabled: true,
+    name: 'Hindi',
   },
   {
     id: 'autoembed-tamil',
     rank: 8,
     disabled: true,
+    name: 'Tamil',
   },
   {
     id: 'autoembed-telugu',
     rank: 7,
     disabled: true,
+    name: 'Telugu',
   },
   {
     id: 'autoembed-bengali',
     rank: 6,
     disabled: true,
+    name: 'Bengali',
   },
 ];
 
-function embed(provider: { id: string; rank: number; disabled?: boolean }) {
+function embed(provider: { id: string; rank: number; disabled?: boolean; name: string }) {
   return makeEmbed({
     id: provider.id,
-    name: provider.id
-      .split('-')
-      .map((word) => word[0].toUpperCase() + word.slice(1))
-      .join(' '),
+    name: provider.name,
     disabled: provider.disabled,
     rank: provider.rank,
     async scrape(ctx) {
-      return {
-        stream: [
-          {
-            id: 'primary',
-            type: 'hls',
-            playlist: ctx.url,
-            flags: [flags.CORS_ALLOWED],
-            captions: [],
-          },
-        ],
-      };
+      try {
+        if (!ctx.url) {
+          throw new NotFoundError('No URL provided for embed');
+        }
+        
+        // Validate URL format
+        let playlistUrl = ctx.url;
+        
+        // Ensure the URL is absolute
+        if (playlistUrl.startsWith('//')) {
+          playlistUrl = `https:${playlistUrl}`;
+        } else if (playlistUrl.startsWith('/')) {
+          playlistUrl = `https://autoembed.net${playlistUrl}`;
+        }
+        
+        // Check if it's a valid stream URL (m3u8 or mp4)
+        const isValidStream = playlistUrl.match(/\.(m3u8|mp4|mkv|webm)(\?|$)/i);
+        
+        if (!isValidStream) {
+          // If it's not a direct stream URL, it might be another iframe
+          return {
+            embeds: [{
+              embedId: 'autoembed-iframe',
+              url: playlistUrl,
+            }],
+          };
+        }
+        
+        return {
+          stream: [
+            {
+              id: 'primary',
+              type: playlistUrl.includes('.m3u8') ? 'hls' : 'file',
+              playlist: playlistUrl,
+              flags: [flags.CORS_ALLOWED],
+              captions: [],
+            },
+          ],
+        };
+      } catch (error) {
+        console.error(`Error in ${provider.id} embed:`, error);
+        throw error;
+      }
     },
   });
 }
