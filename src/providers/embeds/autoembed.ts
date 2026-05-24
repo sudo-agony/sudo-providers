@@ -60,21 +60,27 @@ function embed(provider: { id: string; rank: number; disabled?: boolean; name: s
         const isMp4 = playlistUrl.match(/\.mp4(\?|$)/i);
         
         if (isHls) {
-          // Return HLS stream – only include properties that exist on HlsBasedStream
+          // Return HLS stream – include common fields plus HLS-specific `playlist`
           return {
             stream: [
               {
+                id: 'primary',
                 type: 'hls' as const,
                 playlist: playlistUrl,
+                flags: [flags.CORS_ALLOWED],
+                captions: [],
               },
             ],
           };
         } else if (isMp4) {
-          // Return MP4 file stream with qualities
+          // Return MP4 file stream with qualities – include common fields plus `qualities`
           return {
             stream: [
               {
+                id: 'primary',
                 type: 'file' as const,
+                flags: [flags.CORS_ALLOWED],
+                captions: [],
                 qualities: {
                   unknown: {
                     type: 'mp4',
