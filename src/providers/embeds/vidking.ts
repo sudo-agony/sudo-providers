@@ -127,12 +127,13 @@ async function loadWasm(): Promise<VidKingWasm> {
 
       const memory = wasmExports.memory ?? (imports.env as { memory?: WebAssembly.Memory }).memory;
       if (!memory) throw new Error('VidKing wasm memory unavailable');
+      const wasmMemory = memory;
 
       function decode(ptr: number | null): string | null {
         if (!ptr) return null;
 
-        const end = ptr + (new Uint32Array(memory.buffer)[(ptr - 4) >>> 2] >>> 1);
-        const view = new Uint16Array(memory.buffer);
+        const end = ptr + (new Uint32Array(wasmMemory.buffer)[(ptr - 4) >>> 2] >>> 1);
+        const view = new Uint16Array(wasmMemory.buffer);
         let start = ptr >>> 1;
         let output = '';
 
@@ -145,7 +146,7 @@ async function loadWasm(): Promise<VidKingWasm> {
 
       function encode(value: string): number {
         const ptr = wasmExports.__new(value.length << 1, 2) >>> 0;
-        const view = new Uint16Array(memory.buffer);
+        const view = new Uint16Array(wasmMemory.buffer);
         for (let i = 0; i < value.length; i += 1) {
           view[(ptr >>> 1) + i] = value.charCodeAt(i);
         }
