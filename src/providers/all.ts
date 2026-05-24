@@ -32,11 +32,7 @@ import { remotestreamScraper } from '@/providers/sources/remotestream';
 import { showboxScraper } from '@/providers/sources/showbox/index';
 import { TASFScraper } from '@/providers/sources/theyallsayflix';
 import { tugaflixScraper } from '@/providers/sources/tugaflix';
-<<<<<<< HEAD
-//import { vidkingScraper } from '@/providers/sources/vidking';
-=======
 //import { vidkingScraper } from '@/providers/sources/vidking'; commented out since it doesn't work
->>>>>>> 6421906d51b34953717d014229a35b66828bc951
 import { vidsrcScraper } from '@/providers/sources/vidsrc/index';
 import { vidsrcsuScraper } from '@/providers/sources/vidsrcsu';
 import { whvxScraper } from '@/providers/sources/whvx';
@@ -86,11 +82,7 @@ import { warezcdnScraper } from './sources/warezcdn';
 export function gatherAllSources(): Array<Sourcerer> {
   // all sources are gathered here
   return [
-<<<<<<< HEAD
-    //vidkingScraper,
-=======
     //vidkingScraper, commented out since it doesn't work
->>>>>>> 6421906d51b34953717d014229a35b66828bc951
     catflixScraper,
     flixhqScraper,
     remotestreamScraper,
@@ -149,11 +141,7 @@ export function gatherAllEmbeds(): Array<Embed> {
     deltaScraper,
     alphaScraper,
     vidplayScraper,
-<<<<<<< HEAD
-    //vidkingEmbedScraper,
-=======
     //vidkingEmbedScraper, commented out since it doesn't work
->>>>>>> 6421906d51b34953717d014229a35b66828bc951
     wootlyScraper,
     doodScraper,
     streamvidScraper,
