@@ -107,7 +107,7 @@ const universalScraper = async (ctx: MovieScrapeContext | ShowScrapeContext) => 
     let iframeUrl: string | null = null;
     try {
       const iframeSource$ = load(firstVideo.url);
-      iframeUrl = iframeSource$('iframe').attr('data-src') || iframeSource$('iframe').attr('src');
+      iframeUrl = iframeSource$('iframe').attr('data-src') || iframeSource$('iframe').attr('src') || null;
     } catch (error) {
       console.error('Error parsing iframe HTML:', error);
       throw new NotFoundError('Failed to parse video embed code');

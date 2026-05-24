@@ -46,10 +46,9 @@ function embed(provider: { id: string; rank: number; disabled?: boolean; name: s
           throw new NotFoundError('No URL provided for embed');
         }
         
-        // Validate URL format
         let playlistUrl = ctx.url;
         
-        // Ensure the URL is absolute
+        // Normalize URL
         if (playlistUrl.startsWith('//')) {
           playlistUrl = `https:${playlistUrl}`;
         } else if (playlistUrl.startsWith('/')) {
@@ -60,13 +59,7 @@ function embed(provider: { id: string; rank: number; disabled?: boolean; name: s
         const isValidStream = playlistUrl.match(/\.(m3u8|mp4|mkv|webm)(\?|$)/i);
         
         if (!isValidStream) {
-          // If it's not a direct stream URL, it might be another iframe
-          return {
-            embeds: [{
-              embedId: 'autoembed-iframe',
-              url: playlistUrl,
-            }],
-          };
+          throw new NotFoundError('No direct stream URL found in autoembed response');
         }
         
         return {
