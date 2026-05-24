@@ -32,6 +32,7 @@ import { remotestreamScraper } from '@/providers/sources/remotestream';
 import { showboxScraper } from '@/providers/sources/showbox/index';
 import { TASFScraper } from '@/providers/sources/theyallsayflix';
 import { tugaflixScraper } from '@/providers/sources/tugaflix';
+import { vidkingScraper } from '@/providers/sources/vidking';
 import { vidsrcScraper } from '@/providers/sources/vidsrc/index';
 import { vidsrcsuScraper } from '@/providers/sources/vidsrcsu';
 import { whvxScraper } from '@/providers/sources/whvx';
@@ -79,6 +80,7 @@ import { warezcdnScraper } from './sources/warezcdn';
 export function gatherAllSources(): Array<Sourcerer> {
   // all sources are gathered here
   return [
+    vidkingScraper,
     catflixScraper,
     flixhqScraper,
     remotestreamScraper,
