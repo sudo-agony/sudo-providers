@@ -7,7 +7,6 @@ import { NotFoundError } from '@/utils/errors';
 
 const baseUrl = 'https://www.vidking.net';
 const apiBaseUrl = 'https://api.videasy.net';
-const tmdbBaseUrl = 'https://db.videasy.net';
 const wasmUrl = `${baseUrl}/assets/wasm/module1.wasm`;
 const hashidsUrl = 'https://cdnjs.cloudflare.com/ajax/libs/hashids/2.2.10/hashids.min.js';
 
@@ -20,12 +19,6 @@ const serverList = [
 
 type VidKingMediaType = 'movie' | 'tv';
 
-type VidKingMetadata = {
-  title: string;
-  year: string;
-  imdbId: string;
-};
-
 type VidKingSource = {
   url: string;
   quality: string;
@@ -34,6 +27,19 @@ type VidKingSource = {
 type VidKingPayload = {
   sources?: VidKingSource[];
 };
+
+type VidKingEmbedPayload = {
+  url: string;
+  title?: string;
+  year?: string;
+  imdbId?: string;
+};
+
+function stripRunnerSuffix(url: string): string {
+  const markerIndex = url.indexOf(btoa('MEDIA='));
+  if (markerIndex === -1) return url;
+  return url.slice(0, markerIndex);
+}
 
 type VidKingWasm = {
   serve(): string;
@@ -45,7 +51,15 @@ let hashidsPromise: Promise<any> | null = null;
 let wasmPromise: Promise<VidKingWasm> | null = null;
 
 function parseEmbedUrl(url: string): { mediaType: VidKingMediaType; tmdbId: string; seasonId: string; episodeId: string } {
-  const parsedUrl = new URL(url);
+  let parsedUrl: URL;
+  let inputUrl = stripRunnerSuffix(url);
+
+  if (inputUrl.trim().startsWith('{')) {
+    const payload = JSON.parse(inputUrl) as VidKingEmbedPayload;
+    inputUrl = stripRunnerSuffix(payload.url);
+  }
+
+  parsedUrl = new URL(inputUrl);
   const parts = parsedUrl.pathname.split('/').filter(Boolean);
 
   if (parts[0] !== 'embed' || (parts[1] !== 'movie' && parts[1] !== 'tv')) {
@@ -171,27 +185,6 @@ async function loadWasm(): Promise<VidKingWasm> {
   return wasmPromise;
 }
 
-async function fetchMetadata(ctx: EmbedScrapeContext, mediaType: VidKingMediaType, tmdbId: string): Promise<VidKingMetadata> {
-  const response = await ctx.proxiedFetcher.full<any>(`${tmdbBaseUrl}/3/${mediaType}/${tmdbId}`, {
-    query: {
-      append_to_response: 'external_ids',
-      language: 'en-US',
-    },
-  });
-
-  if (response.statusCode !== 200) throw new NotFoundError('Unable to fetch VidKing metadata');
-
-  const body = response.body;
-  const title = mediaType === 'movie' ? body.title : body.name;
-  const year = mediaType === 'movie' ? body.release_date : body.first_air_date;
-
-  return {
-    title,
-    year: year ? new Date(year).getFullYear().toString() : '',
-    imdbId: body.external_ids?.imdb_id ?? '',
-  };
-}
-
 async function buildAesKey(seed: number): Promise<string> {
   const Hashids = await loadHashids();
   const hashids = new Hashids();
@@ -253,19 +246,20 @@ function toStreams(payload: VidKingPayload): EmbedOutput['stream'] {
 
 async function scrape(ctx: EmbedScrapeContext): Promise<EmbedOutput> {
   const { mediaType, tmdbId, seasonId, episodeId } = parseEmbedUrl(ctx.url);
-  const metadata = await fetchMetadata(ctx, mediaType, tmdbId);
+  const cleanedUrl = stripRunnerSuffix(ctx.url);
+  const metadata = cleanedUrl.trim().startsWith('{') ? (JSON.parse(cleanedUrl) as VidKingEmbedPayload) : { url: cleanedUrl };
 
   for (const server of serverList) {
     try {
       const response = await ctx.proxiedFetcher.full<string>(`${apiBaseUrl}/${server.endpoint}`, {
         query: {
-          title: metadata.title,
+          title: metadata.title ?? '',
           mediaType,
-          year: metadata.year,
+          year: metadata.year ?? '',
           episodeId,
           seasonId,
           tmdbId,
-          imdbId: metadata.imdbId,
+          imdbId: metadata.imdbId ?? '',
           _t: Date.now().toString(),
         },
         headers: {

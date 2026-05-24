@@ -10,7 +10,12 @@ async function scrapeMovie(ctx: MovieScrapeContext): Promise<SourcererOutput> {
   const embeds: SourcererEmbed[] = [
     {
       embedId,
-      url: embedUrl,
+      url: JSON.stringify({
+        url: embedUrl,
+        title: ctx.media.title,
+        year: ctx.media.releaseYear.toString(),
+        imdbId: ctx.media.imdbId ?? '',
+      }),
     },
   ];
 
@@ -25,7 +30,12 @@ async function scrapeShow(ctx: ShowScrapeContext): Promise<SourcererOutput> {
   const embeds: SourcererEmbed[] = [
     {
       embedId,
-      url: embedUrl,
+      url: JSON.stringify({
+        url: embedUrl,
+        title: ctx.media.title,
+        year: ctx.media.releaseYear.toString(),
+        imdbId: ctx.media.imdbId ?? '',
+      }),
     },
   ];
 
