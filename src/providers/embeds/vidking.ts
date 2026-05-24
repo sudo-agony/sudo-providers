@@ -16,38 +16,45 @@ async function scrape(ctx: EmbedScrapeContext): Promise<EmbedOutput> {
   // Try to extract sources from the page
   const $ = load(html);
 
-  // Look for HLS streams in the page
-  // VidKing typically embeds M3U8 URLs in script tags or data attributes
+  // Look for HLS and MP4 streams in the page
   let hlsUrl = '';
+  let mp4Url = '';
 
   // Try to find in script tags
   $('script').each((_, element) => {
     const scriptContent = $(element).html() || '';
 
-    // Look for m3u8 or .mp4 URLs
-    const m3u8Match = scriptContent.match(/['"]([^'"]*\.m3u8[^'"]*)['"]/i);
-    if (m3u8Match?.[1]) {
-      hlsUrl = m3u8Match[1];
-      return false; // break
+    // Look for m3u8 URLs
+    if (!hlsUrl) {
+      const m3u8Match = scriptContent.match(/['"]([^'"]*\.m3u8[^'"]*)['"]/i);
+      if (m3u8Match?.[1]) {
+        hlsUrl = m3u8Match[1];
+      }
     }
 
-    const mp4Match = scriptContent.match(/['"]([^'"]*\.mp4[^'"]*)['"]/i);
-    if (mp4Match?.[1]) {
-      hlsUrl = mp4Match[1];
-      return false; // break
+    // Look for mp4 URLs
+    if (!mp4Url) {
+      const mp4Match = scriptContent.match(/['"]([^'"]*\.mp4[^'"]*)['"]/i);
+      if (mp4Match?.[1]) {
+        mp4Url = mp4Match[1];
+      }
     }
   });
 
-  // If no streams found in scripts, try looking for video tags or other common patterns
-  if (!hlsUrl) {
+  // If no streams found in scripts, try looking for video tags
+  if (!hlsUrl && !mp4Url) {
     const videoTag = $('video source').attr('src');
     if (videoTag) {
-      hlsUrl = videoTag;
+      if (videoTag.includes('.m3u8')) {
+        hlsUrl = videoTag;
+      } else {
+        mp4Url = videoTag;
+      }
     }
   }
 
   // If still no streams, try looking for iframe sources
-  if (!hlsUrl) {
+  if (!hlsUrl && !mp4Url) {
     const iframeTag = $('iframe').attr('src');
     if (iframeTag) {
       hlsUrl = iframeTag;
@@ -73,10 +80,32 @@ async function scrape(ctx: EmbedScrapeContext): Promise<EmbedOutput> {
     };
   }
 
-  // If no HLS URL found, this could be because:
+  if (mp4Url) {
+    return {
+      stream: [
+        {
+          id: 'primary',
+          type: 'file',
+          flags: [flags.CORS_ALLOWED],
+          captions: [],
+          qualities: {
+            unknown: {
+              type: 'mp4',
+              url: mp4Url,
+            },
+          },
+          preferredHeaders: {
+            Origin: 'https://www.vidking.net',
+            Referer: 'https://www.vidking.net/',
+          },
+        },
+      ],
+    };
+  }
+
+  // If no streams found, this could be because:
   // 1. The page structure has changed
-  // 2. The API is blocking the request
-  // 3. The streams are loaded dynamically with JavaScript
+  // 2. The streams are loaded dynamically with JavaScript
   throw new Error('Failed to extract streams from VidKing embed page');
 }
 
