@@ -4,10 +4,7 @@ import { MovieScrapeContext, ShowScrapeContext } from '@/utils/context';
 const baseUrl = 'https://www.vidking.net';
 const embedId = 'vidking';
 
-function buildEmbedUrl(
-  path: string,
-  metadata: { title: string; year: string; imdbId: string },
-): string {
+function buildEmbedUrl(path: string, metadata: { title: string; year: string; imdbId: string }): string {
   const url = new URL(`${baseUrl}${path}`);
   url.searchParams.set('title', metadata.title);
   url.searchParams.set('year', metadata.year);
