@@ -28,13 +28,6 @@ type VidKingPayload = {
   sources?: VidKingSource[];
 };
 
-type VidKingEmbedPayload = {
-  url: string;
-  title?: string;
-  year?: string;
-  imdbId?: string;
-};
-
 function stripRunnerSuffix(url: string): string {
   const markerIndex = url.indexOf(btoa('MEDIA='));
   if (markerIndex === -1) return url;
@@ -51,15 +44,7 @@ let hashidsPromise: Promise<any> | null = null;
 let wasmPromise: Promise<VidKingWasm> | null = null;
 
 function parseEmbedUrl(url: string): { mediaType: VidKingMediaType; tmdbId: string; seasonId: string; episodeId: string } {
-  let parsedUrl: URL;
-  let inputUrl = stripRunnerSuffix(url);
-
-  if (inputUrl.trim().startsWith('{')) {
-    const payload = JSON.parse(inputUrl) as VidKingEmbedPayload;
-    inputUrl = stripRunnerSuffix(payload.url);
-  }
-
-  parsedUrl = new URL(inputUrl);
+  const parsedUrl = new URL(stripRunnerSuffix(url));
   const parts = parsedUrl.pathname.split('/').filter(Boolean);
 
   if (parts[0] !== 'embed' || (parts[1] !== 'movie' && parts[1] !== 'tv')) {
@@ -245,21 +230,25 @@ function toStreams(payload: VidKingPayload): EmbedOutput['stream'] {
 }
 
 async function scrape(ctx: EmbedScrapeContext): Promise<EmbedOutput> {
-  const { mediaType, tmdbId, seasonId, episodeId } = parseEmbedUrl(ctx.url);
-  const cleanedUrl = stripRunnerSuffix(ctx.url);
-  const metadata = cleanedUrl.trim().startsWith('{') ? (JSON.parse(cleanedUrl) as VidKingEmbedPayload) : { url: cleanedUrl };
+  const parsedUrl = new URL(stripRunnerSuffix(ctx.url));
+  const { mediaType, tmdbId, seasonId, episodeId } = parseEmbedUrl(parsedUrl.toString());
+  const metadata = {
+    title: parsedUrl.searchParams.get('title') ?? '',
+    year: parsedUrl.searchParams.get('year') ?? '',
+    imdbId: parsedUrl.searchParams.get('imdbId') ?? '',
+  };
 
   for (const server of serverList) {
     try {
       const response = await ctx.proxiedFetcher.full<string>(`${apiBaseUrl}/${server.endpoint}`, {
         query: {
-          title: metadata.title ?? '',
+          title: metadata.title,
           mediaType,
-          year: metadata.year ?? '',
+          year: metadata.year,
           episodeId,
           seasonId,
           tmdbId,
-          imdbId: metadata.imdbId ?? '',
+          imdbId: metadata.imdbId,
           _t: Date.now().toString(),
         },
         headers: {
