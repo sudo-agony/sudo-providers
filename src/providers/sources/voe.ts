@@ -9,29 +9,19 @@ function buildEmbedUrl(path: string): string {
 }
 
 async function scrapeMovie(ctx: MovieScrapeContext): Promise<SourcererOutput> {
-  // Construct URL like: https://voe.sx/embed/tmdb/{tmdbId}
   const embedUrl = buildEmbedUrl(`/tmdb/${ctx.media.tmdbId}`);
-  
-  return {
-    embeds: [{ embedId, url: embedUrl }],
-  };
+  return { embeds: [{ embedId, url: embedUrl }] };
 }
 
 async function scrapeShow(ctx: ShowScrapeContext): Promise<SourcererOutput> {
-  // Construct URL like: https://voe.sx/embed/tmdb/{tmdbId}/{season}/{episode}
-  const embedUrl = buildEmbedUrl(
-    `/tmdb/${ctx.media.tmdbId}/${ctx.media.season.number}/${ctx.media.episode.number}`
-  );
-  
-  return {
-    embeds: [{ embedId, url: embedUrl }],
-  };
+  const embedUrl = buildEmbedUrl(`/tmdb/${ctx.media.tmdbId}/${ctx.media.season.number}/${ctx.media.episode.number}`);
+  return { embeds: [{ embedId, url: embedUrl }] };
 }
 
 export const voeSourceScraper = makeSourcerer({
   id: 'voe',
   name: 'VOE.sx',
-  rank: 130, // Adjust rank as needed
+  rank: 130,
   flags: [],
   scrapeMovie,
   scrapeShow,
