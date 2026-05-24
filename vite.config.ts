@@ -22,18 +22,8 @@ export default defineConfig((env) => ({
   },
   build: {
     minify: false,
-    target: 'node18',                   // <-- add this line
     rollupOptions: {
-      external: [
-        ...Object.keys(pkg.dependencies),
-        // Node built-ins that may be imported by puppeteer or its deps
-        'fs', 'path', 'url', 'http', 'https', 'child_process', 'stream',
-        'net', 'tls', 'crypto', 'zlib', 'events', 'util', 'os', 'assert',
-        'buffer', 'querystring', 'string_decoder', 'punycode', 'dns',
-        'readline', 'tty', 'dgram', 'vm', 'module', 'worker_threads',
-        // Puppeteer and related packages
-        'puppeteer', '@puppeteer/browsers', 'puppeteer-core', 'chromium-bidi'
-      ],
+      external: Object.keys(pkg.dependencies),
       output: {
         globals: Object.fromEntries(Object.keys(pkg.dependencies).map((v) => [v, v])),
       },
