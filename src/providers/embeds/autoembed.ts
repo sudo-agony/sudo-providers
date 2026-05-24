@@ -55,24 +55,44 @@ function embed(provider: { id: string; rank: number; disabled?: boolean; name: s
           playlistUrl = `https://autoembed.net${playlistUrl}`;
         }
         
-        // Check if it's a valid stream URL (m3u8 or mp4)
-        const isValidStream = playlistUrl.match(/\.(m3u8|mp4|mkv|webm)(\?|$)/i);
+        // Check if it's a valid stream URL
+        const isHls = playlistUrl.match(/\.m3u8(\?|$)/i);
+        const isMp4 = playlistUrl.match(/\.mp4(\?|$)/i);
         
-        if (!isValidStream) {
-          throw new NotFoundError('No direct stream URL found in autoembed response');
+        if (isHls) {
+          // Return HLS stream
+          return {
+            stream: [
+              {
+                id: 'primary',
+                type: 'hls',
+                playlist: playlistUrl,
+                flags: [flags.CORS_ALLOWED],
+                captions: [],
+              },
+            ],
+          };
+        } else if (isMp4) {
+          // Return MP4 file stream with qualities
+          return {
+            stream: [
+              {
+                id: 'primary',
+                type: 'file',
+                flags: [flags.CORS_ALLOWED],
+                captions: [],
+                qualities: {
+                  unknown: {
+                    type: 'mp4',
+                    url: playlistUrl,
+                  },
+                },
+              },
+            ],
+          };
+        } else {
+          throw new NotFoundError('No valid stream URL found (needs .m3u8 or .mp4)');
         }
-        
-        return {
-          stream: [
-            {
-              id: 'primary',
-              type: playlistUrl.includes('.m3u8') ? 'hls' : 'file',
-              playlist: playlistUrl,
-              flags: [flags.CORS_ALLOWED],
-              captions: [],
-            },
-          ],
-        };
       } catch (error) {
         console.error(`Error in ${provider.id} embed:`, error);
         throw error;
