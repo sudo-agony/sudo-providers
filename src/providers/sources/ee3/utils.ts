@@ -11,36 +11,71 @@ export async function login(
   pass: string,
   ctx: ShowScrapeContext | MovieScrapeContext,
 ): Promise<string | null> {
-  const req = await ctx.proxiedFetcher.full<string>('/login', {
-    baseUrl,
-    method: 'POST',
-    body: new URLSearchParams({ user, pass, action: 'login' }),
-    readHeaders: ['Set-Cookie'],
-  });
-  const res: loginResponse = JSON.parse(req.body);
+  try {
+    const req = await ctx.proxiedFetcher.full<string>('/login', {
+      baseUrl,
+      method: 'POST',
+      body: new URLSearchParams({ user, pass, action: 'login' }),
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      readHeaders: ['Set-Cookie'],
+    });
+    
+    // Check if response is valid JSON
+    let res: loginResponse;
+    try {
+      res = JSON.parse(req.body);
+    } catch (e) {
+      console.error('Failed to parse login response:', req.body);
+      return null;
+    }
 
-  const cookie = parseSetCookie(
-    // It retruns a cookie even when the login failed
-    // I have the backup cookie here just in case
-    res.status === 1 ? (req.headers.get('Set-Cookie') ?? '') : 'PHPSESSID=mk2p73c77qc28o5i5120843ruu;',
-  );
+    // Only proceed if login was successful
+    if (res.status !== 1) {
+      return null;
+    }
 
-  return cookie.PHPSESSID.value;
+    const setCookieHeader = req.headers.get('Set-Cookie');
+    if (!setCookieHeader) {
+      return null;
+    }
+
+    const cookie = parseSetCookie(setCookieHeader);
+    return cookie.PHPSESSID?.value || null;
+  } catch (error) {
+    console.error('Login error:', error);
+    return null;
+  }
 }
 
 export function parseSearch(body: string): { title: string; year: number; id: string }[] {
   const result: { title: string; year: number; id: string }[] = [];
 
-  const $ = load(body);
-  $('div').each((_, element) => {
-    const title = $(element).find('.title').text().trim();
-    const year = parseInt($(element).find('.details span').first().text().trim(), 10);
-    const id = $(element).find('.control-buttons').attr('data-id');
+  try {
+    const $ = load(body);
+    $('div.movie-item, div[data-id]').each((_, element) => {
+      // Try different selectors as the structure might vary
+      const title = $(element).find('.title').text().trim() || 
+                    $(element).find('h3').text().trim() ||
+                    $(element).attr('data-title');
+      
+      let year = parseInt($(element).find('.details span').first().text().trim(), 10);
+      if (isNaN(year)) {
+        const yearMatch = $(element).text().match(/(19|20)\d{2}/);
+        year = yearMatch ? parseInt(yearMatch[0], 10) : 0;
+      }
+      
+      const id = $(element).find('.control-buttons').attr('data-id') ||
+                 $(element).attr('data-id');
 
-    if (title && year && id) {
-      result.push({ title, year, id });
-    }
-  });
+      if (title && id) {
+        result.push({ title, year: year || 0, id });
+      }
+    });
+  } catch (error) {
+    console.error('Parse search error:', error);
+  }
 
   return result;
 }
