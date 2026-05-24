@@ -17,58 +17,50 @@ async function scrape(ctx: EmbedScrapeContext): Promise<EmbedOutput> {
   const $ = load(html);
 
   // Look for HLS and MP4 streams in the page
-  let hlsUrl = '';
-  let mp4Url = '';
+  let hlsStreamUrl = '';
+  let mp4StreamUrl = '';
 
   // Try to find in script tags
   $('script').each((_, element) => {
     const scriptContent = $(element).html() || '';
 
-    // Look for m3u8 URLs
-    if (!hlsUrl) {
-      const m3u8Match = scriptContent.match(/['"]([^'"]*\.m3u8[^'"]*)['"]/i);
+    // Look for m3u8 URLs (HLS streams) - use restrictive pattern to avoid matching whitespace
+    if (!hlsStreamUrl) {
+      const m3u8Match = scriptContent.match(/['"]([^\s'"]+\.m3u8[^\s'"]*)['"]/i);
       if (m3u8Match?.[1]) {
-        hlsUrl = m3u8Match[1];
+        hlsStreamUrl = m3u8Match[1];
       }
     }
 
-    // Look for mp4 URLs
-    if (!mp4Url) {
-      const mp4Match = scriptContent.match(/['"]([^'"]*\.mp4[^'"]*)['"]/i);
+    // Look for mp4 URLs - use restrictive pattern to avoid matching whitespace
+    if (!mp4StreamUrl) {
+      const mp4Match = scriptContent.match(/['"]([^\s'"]+\.mp4[^\s'"]*)['"]/i);
       if (mp4Match?.[1]) {
-        mp4Url = mp4Match[1];
+        mp4StreamUrl = mp4Match[1];
       }
     }
   });
 
   // If no streams found in scripts, try looking for video tags
-  if (!hlsUrl && !mp4Url) {
+  if (!hlsStreamUrl && !mp4StreamUrl) {
     const videoTag = $('video source').attr('src');
     if (videoTag) {
       if (videoTag.includes('.m3u8')) {
-        hlsUrl = videoTag;
+        hlsStreamUrl = videoTag;
       } else {
-        mp4Url = videoTag;
+        mp4StreamUrl = videoTag;
       }
     }
   }
 
-  // If still no streams, try looking for iframe sources
-  if (!hlsUrl && !mp4Url) {
-    const iframeTag = $('iframe').attr('src');
-    if (iframeTag) {
-      hlsUrl = iframeTag;
-    }
-  }
-
   // Return the extracted stream or throw an error
-  if (hlsUrl) {
+  if (hlsStreamUrl) {
     return {
       stream: [
         {
           id: 'primary',
           type: 'hls',
-          playlist: hlsUrl,
+          playlist: hlsStreamUrl,
           flags: [flags.CORS_ALLOWED],
           captions: [],
           preferredHeaders: {
@@ -80,7 +72,7 @@ async function scrape(ctx: EmbedScrapeContext): Promise<EmbedOutput> {
     };
   }
 
-  if (mp4Url) {
+  if (mp4StreamUrl) {
     return {
       stream: [
         {
@@ -91,7 +83,7 @@ async function scrape(ctx: EmbedScrapeContext): Promise<EmbedOutput> {
           qualities: {
             unknown: {
               type: 'mp4',
-              url: mp4Url,
+              url: mp4StreamUrl,
             },
           },
           preferredHeaders: {
