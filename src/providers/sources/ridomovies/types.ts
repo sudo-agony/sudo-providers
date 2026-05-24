@@ -3,8 +3,8 @@ export interface Content {
   type: string;
   slug: string;
   title: string;
-  metaTitle: any;
-  metaDescription: any;
+  metaTitle?: any;
+  metaDescription?: any;
   usersOnly: boolean;
   userLevel: number;
   vipOnly: boolean;
@@ -19,13 +19,13 @@ export interface Content {
 export interface Contentable {
   id: string;
   contentId: string;
-  revisionId: any;
+  revisionId?: any;
   originalTitle: string;
   overview: string;
   releaseDate: string;
   releaseYear: string;
-  videoNote: any;
-  posterNote: any;
+  videoNote?: any;
+  posterNote?: any;
   userRating: number;
   imdbRating: number;
   imdbVotes: number;
@@ -43,7 +43,7 @@ export interface Contentable {
   directorId: number;
   createdAt: string;
   updatedAt: string;
-  content: Content;
+  content?: Content;
 }
 
 export interface SearchResultItem {
@@ -51,8 +51,8 @@ export interface SearchResultItem {
   type: string;
   slug: string;
   title: string;
-  metaTitle: any;
-  metaDescription: any;
+  metaTitle?: any;
+  metaDescription?: any;
   usersOnly: boolean;
   userLevel: number;
   vipOnly: boolean;
@@ -66,13 +66,13 @@ export interface SearchResultItem {
 }
 
 export type SearchResult = {
-  data: {
-    items: SearchResultItem[];
+  data?: {
+    items?: SearchResultItem[];
   };
 };
 
 export type IframeSourceResult = {
-  data: {
+  data?: {
     url: string;
   }[];
 };
