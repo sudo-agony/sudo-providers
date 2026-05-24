@@ -59,6 +59,7 @@ import { smashyStreamFScraper } from './embeds/smashystream/video1';
 import { streamtapeScraper } from './embeds/streamtape';
 import { streamvidScraper } from './embeds/streamvid';
 import { vidCloudScraper } from './embeds/vidcloud';
+import { vidkingScraper as vidkingEmbedScraper } from './embeds/vidking';
 import { vidplayScraper } from './embeds/vidplay';
 import { voeScraper } from './embeds/voe';
 import { warezcdnembedHlsScraper } from './embeds/warezcdn/hls';
@@ -138,6 +139,7 @@ export function gatherAllEmbeds(): Array<Embed> {
     deltaScraper,
     alphaScraper,
     vidplayScraper,
+    vidkingEmbedScraper,
     wootlyScraper,
     doodScraper,
     streamvidScraper,
