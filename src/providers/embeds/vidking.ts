@@ -1,112 +1,105 @@
-import { load } from 'cheerio';
-
 import { flags } from '@/entrypoint/utils/targets';
-import { EmbedOutput, makeEmbed } from '@/providers/base';
+import { makeEmbed } from '@/providers/base';
 import { EmbedScrapeContext } from '@/utils/context';
-
-async function scrape(ctx: EmbedScrapeContext): Promise<EmbedOutput> {
-  // Fetch the vidking embed page
-  const html = await ctx.proxiedFetcher<string>(ctx.url, {
-    headers: {
-      Referer: 'https://www.vidking.net/',
-      Origin: 'https://www.vidking.net',
-    },
-  });
-
-  // Try to extract sources from the page
-  const $ = load(html);
-
-  // Look for HLS and MP4 streams in the page
-  let hlsStreamUrl = '';
-  let mp4StreamUrl = '';
-
-  // Try to find in script tags
-  $('script').each((_, element) => {
-    const scriptContent = $(element).html() || '';
-
-    // Look for m3u8 URLs (HLS streams) - use restrictive pattern to avoid matching whitespace
-    if (!hlsStreamUrl) {
-      const m3u8Match = scriptContent.match(/['"]([^\s'"]+\.m3u8[^\s'"]*)['"]/i);
-      if (m3u8Match?.[1]) {
-        hlsStreamUrl = m3u8Match[1];
-      }
-    }
-
-    // Look for mp4 URLs - use restrictive pattern to avoid matching whitespace
-    if (!mp4StreamUrl) {
-      const mp4Match = scriptContent.match(/['"]([^\s'"]+\.mp4[^\s'"]*)['"]/i);
-      if (mp4Match?.[1]) {
-        mp4StreamUrl = mp4Match[1];
-      }
-    }
-  });
-
-  // If no streams found in scripts, try looking for video tags
-  if (!hlsStreamUrl && !mp4StreamUrl) {
-    const videoTag = $('video source').attr('src');
-    if (videoTag) {
-      if (videoTag.includes('.m3u8')) {
-        hlsStreamUrl = videoTag;
-      } else {
-        mp4StreamUrl = videoTag;
-      }
-    }
-  }
-
-  // Return the extracted stream or throw an error
-  if (hlsStreamUrl) {
-    return {
-      stream: [
-        {
-          id: 'primary',
-          type: 'hls',
-          playlist: hlsStreamUrl,
-          flags: [flags.CORS_ALLOWED],
-          captions: [],
-          preferredHeaders: {
-            Origin: 'https://www.vidking.net',
-            Referer: 'https://www.vidking.net/',
-          },
-        },
-      ],
-    };
-  }
-
-  if (mp4StreamUrl) {
-    return {
-      stream: [
-        {
-          id: 'primary',
-          type: 'file',
-          flags: [flags.CORS_ALLOWED],
-          captions: [],
-          qualities: {
-            unknown: {
-              type: 'mp4',
-              url: mp4StreamUrl,
-            },
-          },
-          preferredHeaders: {
-            Origin: 'https://www.vidking.net',
-            Referer: 'https://www.vidking.net/',
-          },
-        },
-      ],
-    };
-  }
-
-  // If no streams found, this could be because:
-  // 1. The page structure has changed
-  // 2. The streams are loaded dynamically with JavaScript
-  throw new Error('Failed to extract streams from VidKing embed page');
-}
+import { NotFoundError } from '@/utils/errors';
+import puppeteer from 'puppeteer';
 
 export const vidkingScraper = makeEmbed({
   id: 'vidking',
   name: 'VidKing',
   rank: 206,
-  disabled: true, // Disable until I have the time to fix this API
-  async scrape(ctx) {
-    return scrape(ctx);
+  async scrape(ctx: EmbedScrapeContext) {
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--disable-gpu',
+      ],
+    });
+
+    let streamUrl: string | null = null;
+
+    try {
+      const page = await browser.newPage();
+
+      // Set a realistic user‑agent and referer to avoid being blocked
+      await page.setUserAgent(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      );
+      await page.setExtraHTTPHeaders({
+        Referer: 'https://www.vidking.net/',
+      });
+
+      // Intercept network requests to catch the .m3u8 playlist
+      await page.setRequestInterception(true);
+      page.on('request', (request) => {
+        const url = request.url();
+        if (url.includes('.m3u8')) {
+          streamUrl = url;
+          // Optionally abort the request to save bandwidth
+          // request.abort();
+        } else {
+          request.continue();
+        }
+      });
+
+      // Navigate to the embed URL
+      await page.goto(ctx.url, {
+        waitUntil: 'networkidle2',
+        timeout: 30000,
+      });
+
+      // Wait for the video element to start loading (at least 5 seconds of buffering)
+      try {
+        await page.waitForFunction(
+          () => {
+            const video = document.querySelector('video');
+            return video && video.duration > 0;
+          },
+          { timeout: 30000 }
+        );
+      } catch (err) {
+        // If waiting for video fails, check if we already caught an .m3u8 request
+        if (!streamUrl) {
+          // One more attempt: look for any <source> or video.src
+          streamUrl = await page.evaluate(() => {
+            const video = document.querySelector('video');
+            if (video && video.src) return video.src;
+            const source = document.querySelector('source');
+            if (source && source.src) return source.src;
+            return null;
+          });
+        }
+      }
+
+      if (!streamUrl) {
+        throw new NotFoundError('Could not find any playable stream (.m3u8)');
+      }
+
+      // Return the HLS stream
+      return {
+        stream: [
+          {
+            id: 'primary',
+            type: 'hls',
+            playlist: streamUrl,
+            flags: [flags.CORS_ALLOWED],
+            captions: [],
+            preferredHeaders: {
+              Origin: 'https://www.vidking.net',
+              Referer: 'https://www.vidking.net/',
+            },
+          },
+        ],
+      };
+    } catch (err) {
+      console.error('VidKing embed error:', err);
+      throw err;
+    } finally {
+      await browser.close();
+    }
   },
 });
