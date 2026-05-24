@@ -37,6 +37,7 @@ import { vidsrcScraper } from '@/providers/sources/vidsrc/index';
 import { vidsrcsuScraper } from '@/providers/sources/vidsrcsu';
 import { whvxScraper } from '@/providers/sources/whvx';
 import { zoechipScraper } from '@/providers/sources/zoechip';
+import { voeSourceScraper } from '@/providers/sources/voe';  
 
 import {
   autoembedBengaliScraper,
@@ -114,6 +115,7 @@ export function gatherAllSources(): Array<Sourcerer> {
     vidsrcsuScraper,
     TASFScraper,
     mp4hydraScraper,
+    voeSourceScraper,
   ];
 }
 
@@ -166,5 +168,6 @@ export function gatherAllEmbeds(): Array<Embed> {
     streamwishScraper,
     mp4hydraServer1Scraper,
     mp4hydraServer2Scraper,
+    voeScraper,
   ];
 }
