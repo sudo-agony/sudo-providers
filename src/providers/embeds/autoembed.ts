@@ -1,5 +1,5 @@
 import { flags } from '@/entrypoint/utils/targets';
-import { makeEmbed } from '@/providers/base';
+import { makeEmbed, EmbedOutput } from '@/providers/base';
 import { NotFoundError } from '@/utils/errors';
 
 const providers = [
@@ -40,7 +40,7 @@ function embed(provider: { id: string; rank: number; disabled?: boolean; name: s
     name: provider.name,
     disabled: provider.disabled,
     rank: provider.rank,
-    async scrape(ctx) {
+    async scrape(ctx): Promise<EmbedOutput> {
       try {
         if (!ctx.url) {
           throw new NotFoundError('No URL provided for embed');
@@ -60,15 +60,12 @@ function embed(provider: { id: string; rank: number; disabled?: boolean; name: s
         const isMp4 = playlistUrl.match(/\.mp4(\?|$)/i);
         
         if (isHls) {
-          // Return HLS stream
+          // Return HLS stream – only include properties that exist on HlsBasedStream
           return {
             stream: [
               {
-                id: 'primary',
-                type: 'hls',
+                type: 'hls' as const,
                 playlist: playlistUrl,
-                flags: [flags.CORS_ALLOWED],
-                captions: [],
               },
             ],
           };
@@ -77,10 +74,7 @@ function embed(provider: { id: string; rank: number; disabled?: boolean; name: s
           return {
             stream: [
               {
-                id: 'primary',
-                type: 'file',
-                flags: [flags.CORS_ALLOWED],
-                captions: [],
+                type: 'file' as const,
                 qualities: {
                   unknown: {
                     type: 'mp4',
